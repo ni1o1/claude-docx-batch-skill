@@ -62,7 +62,7 @@
 
 ```bash
 cd ~/.claude/skills
-git clone https://github.com/YOUR_USERNAME/claude-docx-batch-skill.git
+git clone https://github.com/ni1o1/claude-docx-batch-skill.git
 ```
 
 ### Verify Installation
@@ -179,7 +179,7 @@ editor.save('thesis_formatted.docx')
 
 ```bash
 cd ~/.claude/skills
-git clone https://github.com/YOUR_USERNAME/claude-docx-batch-skill.git
+git clone https://github.com/ni1o1/claude-docx-batch-skill.git
 ```
 
 ### 依赖
@@ -216,7 +216,7 @@ editor.save('论文_格式化.docx')
 
 ## API Reference
 
-See [SKILL.md](skills/docx-batch/SKILL.md) for complete API documentation.
+See [SKILL.md](SKILL.md) for complete API documentation.
 
 ---
 
