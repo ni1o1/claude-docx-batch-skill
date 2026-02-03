@@ -57,8 +57,11 @@ editor.save('output.docx')
 ### 段落操作
 
 ```python
-# 删除段落
+# 删除段落（自动保护含图片/OLE对象的段落）
 {'op': 'delete', 'index': 50}
+
+# 强制删除（跳过保护检查，慎用）
+{'op': 'delete', 'index': 50, 'force': True}
 
 # 插入段落
 {'op': 'insert', 'index': 10, 'position': 'after', 'text': '新内容', 'style': 'Normal'}
@@ -116,6 +119,41 @@ editor.save('output.docx')
 ```python
 # 刷新目录/页码/交叉引用（让Word打开时自动更新）
 {'op': 'update_fields_on_open'}
+```
+
+## 重要注意事项
+
+### 段落可能包含隐藏内容
+
+Word 段落中除了可见文本，还可能包含：
+- 图片（inline shape）
+- 换页符（page break）
+- 分节符（section break）
+- 其他嵌入对象
+
+这些内容存在于 `runs` 中，但 **不会体现在 `text` 属性里**。
+
+### 删除操作的安全保护
+
+`delete` 操作会**自动保护**包含嵌入对象（图片、OLE对象、图表等）的段落：
+
+- 这类段落的 `text` 属性为空，但实际包含重要内容
+- 删除时会抛出 `ValueError`，防止误删
+- 如确需删除，使用 `force: True` 强制执行
+
+`read_content` 返回的字段说明：
+
+| 字段 | 含义 |
+|------|------|
+| `is_empty` | 文本为空（可能包含图片） |
+| `is_truly_empty` | 真正为空（无文字且无嵌入对象），可安全删除 |
+| `has_embedded` | 是否包含图片/OLE等嵌入对象 |
+
+```python
+# 示例：安全清理空段落
+content = editor.read_content(range(100))
+ops = [{'op': 'delete', 'index': p['index']} for p in content if p['is_truly_empty']]
+editor.batch_update(ops)  # 只删除真正的空段落，自动跳过含图片的
 ```
 
 ## 常见场景示例

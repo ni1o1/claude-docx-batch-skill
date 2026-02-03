@@ -189,13 +189,24 @@ class DocxEditor:
                 if pPr.find(qn('w:numPr')) is not None:
                     xml_info['has_numPr'] = True
 
+            # 检查段落是否包含嵌入对象（图片、OLE对象等）
+            # 这些内容不会体现在 text 属性中，但删除段落会一并删除
+            drawings = para._element.findall('.//' + qn('w:drawing'))
+            objects = para._element.findall('.//' + qn('w:object'))
+            has_embedded = len(drawings) > 0 or len(objects) > 0
+
+            # is_truly_empty: 真正为空（无文字且无嵌入对象），可安全删除
+            truly_empty = self._is_truly_empty(para)
+
             results.append({
                 'index': i,
                 'text': para.text,
                 'style': para.style.name if para.style else 'Normal',
                 'is_heading': level is not None,
                 'heading_level': level,
-                'is_empty': not para.text.strip(),
+                'is_empty': not para.text.strip(),  # 文本为空（可能包含图片）
+                'is_truly_empty': truly_empty,       # 真正为空（可安全删除）
+                'has_embedded': has_embedded,        # 是否包含图片/OLE等嵌入对象
                 'runs': runs,
                 'format': fmt,
                 'xml': xml_info
@@ -338,8 +349,9 @@ class DocxEditor:
         Args:
             operations: 操作列表，每个操作是一个字典：
 
-            删除段落：
+            删除段落（自动保护含图片的段落）：
                 {'op': 'delete', 'index': 50}
+                {'op': 'delete', 'index': 50, 'force': True}  # 强制删除（慎用）
 
             插入段落：
                 {'op': 'insert', 'index': 10, 'position': 'after'|'before', 'text': '新内容', 'style': 'Normal'}
@@ -435,7 +447,7 @@ class DocxEditor:
 
             try:
                 if op_type == 'delete':
-                    self._op_delete(index)
+                    self._op_delete(index, force=op.get('force', False))
 
                 elif op_type == 'insert':
                     new_idx = self._op_insert(
@@ -563,11 +575,26 @@ class DocxEditor:
 
     # ==================== 内部操作实现 ====================
 
-    def _op_delete(self, index: int):
-        """删除段落"""
+    def _op_delete(self, index: int, force: bool = False):
+        """
+        删除段落
+
+        Args:
+            index: 段落索引
+            force: 是否强制删除（即使包含图片等嵌入对象）
+                   默认 False，会拒绝删除包含嵌入对象的段落
+        """
         if not 0 <= index < len(self._paragraphs):
             raise IndexError(f"索引超出范围: {index}")
         para = self._paragraphs[index]
+
+        # 安全检查：防止误删包含图片/OLE对象的段落
+        if not force and not self._is_truly_empty(para):
+            raise ValueError(
+                f"段落 {index} 包含嵌入对象（图片/OLE等），不能作为空段落删除。"
+                f"如确需删除，请使用 force=True"
+            )
+
         para._element.getparent().remove(para._element)
         self._refresh()
 
@@ -880,6 +907,39 @@ class DocxEditor:
             update_fields.set(qn('w:val'), 'true')
 
     # ==================== 内部辅助 ====================
+
+    def _is_truly_empty(self, para) -> bool:
+        """
+        判断段落是否真正为空（无文字且无图片等嵌入对象）
+
+        Word 文档中，图片以 <w:drawing> 元素嵌入在段落中，
+        这类段落的 para.text 返回空字符串，但删除段落会连带删除图片。
+
+        Returns:
+            True: 段落真正为空，可以安全删除
+            False: 段落包含嵌入对象，不应作为"空段落"删除
+        """
+        # 有文字则不是空段落
+        if para.text.strip() != "":
+            return False
+
+        # 检查是否包含图片（drawing 元素）
+        drawings = para._element.findall('.//' + qn('w:drawing'))
+        if len(drawings) > 0:
+            return False
+
+        # 检查是否包含 OLE 对象（如嵌入的 Excel、公式等）
+        objects = para._element.findall('.//' + qn('w:object'))
+        if len(objects) > 0:
+            return False
+
+        # 检查是否包含图表（Chart 命名空间）
+        # 使用通配符匹配，因为图表可能在不同命名空间下
+        for child in para._element.iter():
+            if 'chart' in child.tag.lower():
+                return False
+
+        return True
 
     def _get_heading_level(self, para) -> Optional[int]:
         """获取标题级别"""
