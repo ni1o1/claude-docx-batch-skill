@@ -62,13 +62,13 @@
 
 ```bash
 cd ~/.claude/skills
-git clone https://github.com/ni1o1/claude-docx-batch-skill.git
+git clone https://github.com/ni1o1/claude-skill-docx-batch.git
 ```
 
 ### Verify Installation
 
 ```bash
-ls ~/.claude/skills/claude-docx-batch-skill/SKILL.md
+ls ~/.claude/skills/claude-skill-docx-batch/SKILL.md
 ```
 
 ### Dependencies
@@ -179,7 +179,7 @@ editor.save('thesis_formatted.docx')
 
 ```bash
 cd ~/.claude/skills
-git clone https://github.com/ni1o1/claude-docx-batch-skill.git
+git clone https://github.com/ni1o1/claude-skill-docx-batch.git
 ```
 
 ### 依赖
